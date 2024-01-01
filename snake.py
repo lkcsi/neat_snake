@@ -8,29 +8,42 @@ class Position:
         self.x = pos.x
         self.y = pos.y
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __str__(self):
+        return f'{self.x}, {self.y}'
+
+    def __repr__(self):
+        return f'[{self.x}, {self.y}]'
+
 class Direction(Enum):
-    UP = 0
-    DOWN = 1
-    LEFT = 2
-    RIGHT = 3
+    LEFT = 0
+    RIGHT = 1
 
 class Snake:
     def __init__(self, pos:Position):
         self.head = pos
-        self.dir = Direction.RIGHT
+        self.dx = 1
+        self.dy = 0
+        self.increase = False
         self.parts = []
     
     def set_direction(self, dir: Direction):
-        if dir == Direction.DOWN and self.dir == Direction.UP:
-            return
-        if dir == Direction.UP and self.dir == Direction.DOWN:
-            return
-        if dir == Direction.RIGHT and self.dir == Direction.LEFT:
-            return
-        if dir == Direction.LEFT and self.dir == Direction.RIGHT:
-            return
+        if dir == Direction.RIGHT:
+            dx = self.dx
+            self.dx = self.dy * -1
+            self.dy = dx
+        if dir == Direction.LEFT:
+            dy = self.dy
+            self.dy = self.dx * -1
+            self.dx = dy
 
-        self.dir = dir
+    def is_part(self, pos:Position):
+        for part in self.parts:
+            if part == pos:
+                return True
+        return False
 
     def move(self):
         last_pos = Position(self.head.x, self.head.y)
@@ -40,23 +53,15 @@ class Snake:
             part.x = last_pos.x
             part.y = last_pos.y
             last_pos = temp
+        if self.increase:
+            self.parts.append(Position(last_pos.x, last_pos.y))
+            self.increase = False
 
     def move_head(self, pos:Position):
-        match self.dir:
-            case Direction.UP: pos.y -= 1
-            case Direction.DOWN: pos.y += 1
-            case Direction.LEFT: pos.x -= 1
-            case Direction.RIGHT: pos.x += 1
+        self.head.x += self.dx
+        self.head.y += self.dy
 
     def add_part(self):
-        if len(self.parts) == 0:
-            last_pos = self.head
-        else: last_pos = self.parts[len(self.parts)-1]
-        
-        match self.dir:
-            case Direction.UP: self.parts.append(Position(last_pos.x, last_pos.y + 1))
-            case Direction.DOWN: self.parts.append(Position(last_pos.x, last_pos.y - 1))
-            case Direction.LEFT: self.parts.append(Position(last_pos.x + 1, last_pos.y))
-            case Direction.RIGHT: self.parts.append(Position(last_pos.x - 1, last_pos.y))
+        self.increase = True
 
 

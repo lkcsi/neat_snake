@@ -13,14 +13,24 @@ class SnakeGame:
 
     def loop(self):
         if not self.game_over:
-            self.check_collision()
-            self.check_fruit()
             self.snake.move()
+            if self.check_collision():
+                self.game_over = True
+                return {'event':'collision'}
+            if self.check_fruit():
+                return {'event':'fruit'}
+            return {'event': None}
             
     def check_collision(self):
         snake = self.snake
         if snake.head.x < 0 or snake.head.x == self.rows or snake.head.y < 0 or snake.head.y == self.cols:
-            self.game_over = True
+            return True
+
+        head = snake.head
+        for part in snake.parts:
+            if part == head:
+                return True
+        return False
 
     def check_fruit(self):
         snake = self.snake
@@ -30,6 +40,8 @@ class SnakeGame:
             self.points += 1
             self.add_fruit()
             self.add_part()
+            return True
+        return False
 
     def add_part(self):
         self.snake.add_part()

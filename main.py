@@ -1,8 +1,9 @@
 from display import SnakeDisplay
 from game import SnakeGame
-from snake import Direction
-import pygame, neat, pickle, os, time, math
+from snake import Direction, Position
+import pygame, neat, pickle, os, sys, copy
 from neat.nn import FeedForwardNetwork
+import loop_check
 
 class Game:
     def __init__(self):
@@ -11,14 +12,11 @@ class Game:
         self.size = (self.rows, self.cols)
         self.game = SnakeGame(self.size)
         self.display = SnakeDisplay(self.game, (500,500))
+        self.positions = []
 
     def move(self, key):
         game = self.game
-        if key == pygame.K_w:
-            game.set_direction(Direction.UP)
-        elif key == pygame.K_s:
-            game.set_direction(Direction.DOWN)
-        elif key == pygame.K_d:
+        if key == pygame.K_d:
             game.set_direction(Direction.RIGHT)
         elif key == pygame.K_a:
             game.set_direction(Direction.LEFT)
@@ -39,72 +37,104 @@ class Game:
                     self.move(event.key)
 
             if counter == limit:
-                self.game.loop()
+                event = self.game.loop()['event']
+                if event: 
+                    print(event)
                 self.display.draw()
-                print(self.get_fruit_distances())
+                print(self.game.snake.head, self.get_wall_distances())
                 counter = 0
             counter += 1
 
+
     def get_wall_distances(self):
         snake = self.game.snake
+        left, ahead, right = 0, 0, 0
+        if snake.dx == -1:
+            ahead = snake.head.x + 1
+            left = self.rows - snake.head.y
+            right = snake.head.y + 1
+        elif snake.dx == 1:
+            ahead = self.cols - snake.head.x
+            left = snake.head.y + 1
+            right = self.rows - snake.head.y
+        elif snake.dy == -1:
+            ahead = snake.head.y + 1
+            left = snake.head.x + 1
+            right = self.cols - snake.head.x
+        elif snake.dy == 1:
+            ahead = self.rows - snake.head.y
+            left = self.cols - snake.head.x
+            right = snake.head.x + 1
 
-        left = snake.head.x
-        right = self.cols - 1 - snake.head.x
-        top = snake.head.y
-        bottom = self.rows - 1 - snake.head.y
-
-        return [left,right,top,bottom]
+        return [left, ahead, right]
 
     def get_fruit_distances(self):
         snake = self.game.snake
         fruit = self.game.fruit
 
-        return [fruit.x - snake.head.x, fruit.y - snake.head.y]
+        left, ahead, right = 0, 0, 0
+        if snake.dx != 0:
+            if snake.head.y == fruit.y and snake.dx * fruit.x > snake.dx * snake.head.x:
+                ahead = 1
+            elif snake.head.x == fruit.x:
+                if fruit.y * snake.dx < snake.head.y * snake.dx:
+                    left = 1
+                if fruit.y * snake.dx > snake.head.y * snake.dx:
+                    right = 1
+
+        elif snake.dy != 0:
+            if snake.head.x == fruit.x and snake.dy * fruit.y > snake.dy * snake.head.y:
+                ahead = 1
+            elif snake.head.y == fruit.y:
+                if fruit.x * snake.dy < snake.head.x * snake.dy:
+                    right = 1
+                if fruit.x * snake.dy > snake.head.x * snake.dy:
+                    left = 1
+
+        return [left, ahead, right]
 
     def play_ai(self, net:FeedForwardNetwork, draw=False):
         clock = pygame.time.Clock()
-        alive, idle, last_score = 0, 0, 0
+        alive = 0
+        loop, limit = 0, 200
         game = self.game
         while True:
             if draw:
                 clock.tick(60)
                 self.display.draw()
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return 0
-
-            if game.game_over:
-                return alive
             #decision
             output = net.activate(self.get_fruit_distances() + self.get_wall_distances())
             decision = output.index(max(output))
             match decision:
-                case 0: game.set_direction(Direction.UP)
-                case 1: game.set_direction(Direction.DOWN)
-                case 2: game.set_direction(Direction.RIGHT)
-                case 3: game.set_direction(Direction.LEFT)
-
-            #check loop
-            if game.points == last_score:
-                idle += 1
-            else: 
-                last_score = game.points
-                idle = 0
+                case 1: game.set_direction(Direction.RIGHT)
+                case 2: game.set_direction(Direction.LEFT)
 
             alive += 1
-            game.loop()
-            if idle > 100:
-                return alive
+            loop += 1
+            event = game.loop()['event']
+            if event == 'fruit':
+                loop = 0
+            elif event == 'collision':
+                return {'reason':'collision', 'alive':alive}
+            if loop == limit:
+                return {'reason': 'loop', 'alive': alive}
+            if game.points == 100:
+                return {'reason': 'win', 'alive': alive}
+
 
 def test_genomes(genomes, config):
     for (_, genome) in genomes:
         genome.fitness = 0
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         game = Game()
-        alive = game.play_ai(net, False)
 
-        genome.fitness = game.game.points * 10 + alive / 10
+        result = game.play_ai(net, False)
+        #if result['reason'] != 'loop':
+        #    genome.fitness += min(100, result['alive'])
+        genome.fitness += game.game.points * 10
+        if result['reason'] == 'win':
+            genome.fitness += 100
 
 def test_best():
     config = load_config()
@@ -126,7 +156,7 @@ def train_ai(checkpoint = None):
     p.add_reporter(neat.Checkpointer(1))
 
     try:
-        winner = p.run(test_genomes, 2)
+        winner = p.run(test_genomes, 100)
     except KeyboardInterrupt:
         print('interrupted')
 
@@ -141,8 +171,14 @@ def load_config():
                        neat.DefaultSpeciesSet, neat.DefaultStagnation, config_dir)
 
 if __name__ == '__main__':
-    #Game().play(speed=2)
-    #train_ai('neat-checkpoint-184')
-    #train_ai()
-    test_best()
+    print('args', sys.argv)
+    match sys.argv[1]:
+        case 'train': 
+            checkpoint = None
+            if len(sys.argv) > 2:
+                checkpoint = sys.argv[2]
+            train_ai(checkpoint)
+        case 'manual': Game().play() 
+        case 'test': test_best()
+
     pygame.quit()
