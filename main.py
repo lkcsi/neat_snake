@@ -84,8 +84,6 @@ def test_genomes(genomes, config):
 
         result = game.play_ai(net, False)
         genome.fitness += game.game.points * 10
-        if result['steering']:
-            genome.fitness *= 1.2
         if result['reason'] == 'win':
             genome.fitness += 100
 
