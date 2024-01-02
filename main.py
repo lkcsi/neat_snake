@@ -38,11 +38,9 @@ class Game:
                     self.move(event.key)
 
             if counter == speed:
-                event = self.game.loop()['event']
-                if event: 
-                    print(event)
+                print(self.game.loop())
                 self.display.draw()
-                print(math.degrees(self.vision.get_fruit_angle()))
+                print(self.vision.get_vision())
                 counter = 0
             counter += 1
 
@@ -65,18 +63,19 @@ class Game:
                     game.set_direction(Direction.RIGHT)
 
             loop += 1
-            event = game.loop()['event']
-            if event == 'fruit':
+            result = game.loop()
+            if result == 'fruit':
                 loop = 0
-            elif event == 'collision':
-                return {'reason':'collision'}
-            if loop == limit:
-                return {'reason': 'loop'}
+            elif result:
+                return result
+            if loop == limit + game.snake.length() * 10:
+                return 'loop'
             if game.points == 100:
-                return {'reason': 'win'}
+                return 'win'
 
 
 def test_genomes(genomes, config):
+    events = {'body':0, 'wall':0, 'win': 0, 'loop': 0}
     for (_, genome) in genomes:
         genome.fitness = 0
         net = neat.nn.FeedForwardNetwork.create(genome, config)
@@ -84,8 +83,10 @@ def test_genomes(genomes, config):
 
         result = game.play_ai(net, False)
         genome.fitness += game.game.points * 10
-        if result['reason'] == 'win':
+        if result == 'win':
             genome.fitness += 100
+        events[result] += 1
+    print(events)
 
 def test_best():
     config = load_config()
@@ -94,7 +95,7 @@ def test_best():
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
     game = Game()
-    game.play_ai(winner_net, True)
+    print(game.play_ai(winner_net, True))
 
 def train_ai(checkpoint = None):
     config = load_config()
@@ -126,7 +127,7 @@ if __name__ == '__main__':
             if len(sys.argv) > 2:
                 checkpoint = sys.argv[2]
             train_ai(checkpoint)
-        case 'manual': Game().play(speed=10) 
+        case 'manual': Game().play(speed=50) 
         case 'test': test_best()
 
     pygame.quit()

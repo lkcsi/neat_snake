@@ -14,23 +14,22 @@ class SnakeGame:
     def loop(self):
         if not self.game_over:
             self.snake.move()
-            if self.check_collision():
+            collision_with = self.check_collision()
+            if collision_with:
                 self.game_over = True
-                return {'event':'collision'}
+                return collision_with
             if self.check_fruit():
-                return {'event':'fruit'}
-            return {'event': None}
+                return 'fruit'
+            return None
             
     def check_collision(self):
         snake = self.snake
         if snake.head.x < 0 or snake.head.x == self.rows or snake.head.y < 0 or snake.head.y == self.cols:
-            return True
+            return 'wall'
 
-        head = snake.head
-        for part in snake.parts:
-            if part == head:
-                return True
-        return False
+        if snake.head in snake.parts:
+            return 'body'
+        return None
 
     def check_fruit(self):
         snake = self.snake

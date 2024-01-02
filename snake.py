@@ -39,6 +39,9 @@ class Snake:
             self.dy = self.dx * -1
             self.dx = dy
 
+    def length(self):
+        return 1 + len(self.parts)
+
     def is_part(self, pos:Position):
         for part in self.parts:
             if part == pos:
