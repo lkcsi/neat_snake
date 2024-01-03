@@ -46,7 +46,7 @@ class Game:
 
     def play_ai(self, net:FeedForwardNetwork, draw=False):
         clock = pygame.time.Clock()
-        loop, limit = 0, 100
+        loop, limit = 0, 50
         game = self.game
         while True:
             if draw:
@@ -70,9 +70,6 @@ class Game:
                 return result
             if loop == limit + game.snake.length() * 10:
                 return 'loop'
-            if game.points == 100:
-                return 'win'
-
 
 def test_genomes(genomes, config):
     events = {'body':0, 'wall':0, 'win': 0, 'loop': 0}
@@ -83,8 +80,6 @@ def test_genomes(genomes, config):
 
         result = game.play_ai(net, False)
         genome.fitness += game.game.points * 10
-        if result == 'win':
-            genome.fitness += 100
         events[result] += 1
     print(events)
 
@@ -127,7 +122,7 @@ if __name__ == '__main__':
             if len(sys.argv) > 2:
                 checkpoint = sys.argv[2]
             train_ai(checkpoint)
-        case 'manual': Game().play(speed=50) 
+        case 'manual': Game().play(speed=10) 
         case 'test': test_best()
 
     pygame.quit()
